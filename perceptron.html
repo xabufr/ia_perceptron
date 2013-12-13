@@ -1,0 +1,341 @@
+<html>
+<head>
+<script type="text/javascript" src="nombres.js"></script>
+<script>
+	var PIXEL_SIZE = 10; //pixels
+
+	var GRID_WIDTH = 0;
+	var GRID_HEIGHT = 0;
+
+	var OUTPUT_COUNT = 6;
+
+	var seuilActivation = 0.75;
+
+	var matriceNeurones = [];
+	var apprentissage = 0.01;
+
+	var pixels = [];
+
+	var mousePressed = false;
+	var BLUR = 4;
+	var mousePixelIndex = -1;
+	function createLink(number) {
+		var link = document.createElement("a");
+		link.href = null;
+		link.setAttribute('onclick', 'drawNumber(' + number
+				+ '); return false;');
+		link.appendChild(document.createTextNode(number));
+		return link;
+	}
+	function init() {
+		var canvas = document.getElementById("canvas");
+		GRID_WIDTH = Math.floor(canvas.width / PIXEL_SIZE);
+		GRID_HEIGHT = Math.floor(canvas.height / PIXEL_SIZE);
+		for (var x = 0; x < GRID_WIDTH; ++x) {
+			matriceNeurones.push([]);
+			for (var y = 0; y < GRID_HEIGHT; ++y) {
+				for (var i = 0; i < OUTPUT_COUNT; ++i) {
+					matriceNeurones[x].push([]);
+					matriceNeurones[x][y].push(0.5);
+				}
+			}
+		}
+
+		resetCanvas();
+
+		canvas.addEventListener("click", function(e) {
+			var mousePoint = mouseCanvasPosition(e);
+			togglePixelAtPoint(mousePoint);
+			flouter();
+			drawPixels();
+		});
+
+		canvas.addEventListener("mousedown", function(e) {
+			mousePressed = true;
+		}, false);
+		canvas.addEventListener("mouseup", function(e) {
+			mousePressed = false;
+		}, false);
+
+		canvas.addEventListener("mousemove", function(e) {
+			if (mousePressed) {
+				var mousePoint = mouseCanvasPosition(e);
+				var pixelIndex = pixelIndexAtPoint(e);
+				if (pixelIndex != mousePixelIndex) {
+					setPixelValueAtPoint(mousePoint, true);
+					flouter();
+					drawPixels();
+					mousePixelIndex = pixelIndex;
+				}
+			}
+		})
+		for (var i = 0; i <= 5; ++i) {
+			var lnk = createLink(i);
+			lnk.appendChild(document.createElement('br'));
+			document.getElementById('links').appendChild(lnk);
+		}
+	}
+
+	function learnClicked() {
+		var learnedNumber = parseInt(document.getElementById("inputNumber").value);
+		learn(learnedNumber);
+		processClicked();
+	}
+
+	function processClicked() {
+		processedNumbers = [];
+
+		processedNumbers = process();
+
+		showProcessedNumbers(processedNumbers);
+	}
+
+	function showProcessedNumbers(processedNumbers) {
+		var result = "";
+		for (var i = 0; i < processedNumbers.length; i++) {
+			result += processedNumbers[i].toString() + ",";
+		}
+		if (result.length > 0)
+			result = result.substring(0, result.length - 1);
+		document.getElementById("outputNumber").value = result;
+
+		var strActivation = '';
+		for (var i = 0; i < OUTPUT_COUNT; ++i) {
+			strActivation = strActivation + i + ': ' + activation(i) + '\n';
+		}
+		document.getElementById("matrice").innerHTML = strActivation;
+	}
+
+	/* ------  */
+
+	function learn(number) {
+		for (var i = 0; i < OUTPUT_COUNT; ++i) {
+			for (var x = 0; x < GRID_WIDTH; ++x) {
+				for (var y = 0; y < GRID_HEIGHT; ++y) {
+					matriceNeurones[x][y][i] += apprentissage
+							* ((i == number ? 1 : 0) - activation(number))
+							* pixels[x][y];
+				}
+			}
+		}
+	}
+
+	function activation(number) {
+		var valeurActivation = 0;
+		for (var x = 0; x < GRID_WIDTH; ++x) {
+			for (var y = 0; y < GRID_HEIGHT; ++y) {
+				valeurActivation += pixels[x][y]
+						* matriceNeurones[x][y][number];
+			}
+		}
+		return valeurActivation;
+	}
+
+	function process() {
+		var listeActivation = [];
+		for (var i = 0; i < OUTPUT_COUNT; ++i) {
+			if (activation(i) >= seuilActivation)
+				listeActivation.push(i);
+		}
+		return listeActivation;
+	}
+
+	function mouseCanvasPosition(e) {
+		var rect = canvas.getBoundingClientRect();
+		return {
+			x : e.clientX - rect.left,
+			y : e.clientY - rect.top
+		};
+	}
+
+	function pixelIndexAtPoint(point) {
+		var pixelIndex = -1;
+		var x = Math.floor(point.x / PIXEL_SIZE);
+		var y = Math.floor(point.y / PIXEL_SIZE);
+		if (x < GRID_WIDTH && y < GRID_HEIGHT) {
+			pixelIndex = y * GRID_WIDTH + x;
+		}
+		return pixelIndex;
+	}
+
+	function togglePixelAtPoint(point) {
+		var x = Math.floor(point.x / PIXEL_SIZE);
+		var y = Math.floor(point.y / PIXEL_SIZE);
+		if (x < GRID_WIDTH && y < GRID_HEIGHT) {
+			pixels[x][y] = !pixels[x][y];
+		}
+	}
+
+	function setPixelValueAtPoint(point, value) {
+		var x = Math.floor(point.x / PIXEL_SIZE);
+		var y = Math.floor(point.y / PIXEL_SIZE);
+		if (x < GRID_WIDTH && y < GRID_HEIGHT) {
+			pixels[x][y] = value;
+		}
+	}
+
+	function resetCanvas() {
+		resetPixels();
+		drawPixels();
+	}
+
+	function resetPixels() {
+		for (var x = 0; x < GRID_WIDTH; x++) {
+			pixels[x] = [];
+			for (var y = 0; y < GRID_HEIGHT; y++) {
+				pixels[x][y] = false;
+			}
+		}
+	}
+
+	function drawPixels() {
+		var canvas = document.getElementById("canvas");
+		var context = canvas.getContext("2d");
+
+		for (var y = 0; y < GRID_HEIGHT; y++) {
+			for (var x = 0; x < GRID_WIDTH; x++) {
+				context.beginPath();
+				context.rect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE,
+						PIXEL_SIZE);
+
+				var color = '';
+				if (!pixels[x][y])
+					color = '#555';
+				else {
+					var r = Math.round(pixels[x][y] * 255), g = Math
+							.round(pixels[x][y] * 255), b = 0;
+					color = 'rgba(' + r + ',' + g + ', ' + b + ', 1)';
+				}
+				context.fillStyle = color;
+				context.fill();
+				context.lineWidth = 1;
+				context.strokeStyle = '#000';
+				context.stroke();
+			}
+		}
+	}
+	function drawNumber(number) {
+		setNumber(number);
+		drawPixels();
+		processClicked();
+	}
+	function setNumber(number) {
+		pixels = nombres[number];
+		document.getElementById("inputNumber").value = number;
+		recadrer();
+		flouter();
+		processClicked();
+	}
+	function saveNumbers(number) {
+		nombres[number] = pixels.concat([]);
+	}
+
+	function doAllTheFuckingJobForMe() {
+		var strArrayNumbers = document.getElementById("autoTrain").value
+				.split(",");
+		var numbersToTrain = [];
+		for ( var strNumber in strArrayNumbers)
+			numbersToTrain.push(parseInt(strArrayNumbers[strNumber]));
+		for (var i = 0; i < 100; ++i) {
+			var boucleCorrecte = true;
+			for ( var currentNumber in numbersToTrain) {
+				currentNumber = numbersToTrain[currentNumber];
+				setNumber(currentNumber);
+				var numbers = process();
+				var correct = numbers.length == 1
+						&& numbers[0] == currentNumber;
+				if (!correct) {
+					learn(currentNumber);
+					boucleCorrecte = false;
+				}
+			}
+			if (boucleCorrecte)
+				break;
+		}
+	}
+	function flouter() {
+		var maxDist = Math.sqrt(BLUR * BLUR + BLUR * BLUR);
+		resetFlou();
+		for (var i = -BLUR; i <= BLUR; ++i) {
+			for (var j = -BLUR; j <= BLUR; ++j) {
+				if (i == 0 && j == 0)
+					continue;
+				var distance = i * i + j * j;
+				distance = Math.sqrt(distance);
+
+				for (var y = 0; y < GRID_HEIGHT; ++y) {
+					for (var x = 0; x < GRID_WIDTH; ++x) {
+						var xDecal = x + i;
+						var yDecal = y + j;
+						if (xDecal >= 0 && yDecal >= 0 && xDecal < GRID_WIDTH
+								&& yDecal < GRID_HEIGHT
+								&& pixels[x][y] === true) {
+							var nouvelleValeur = (maxDist - distance) / maxDist;
+							if (nouvelleValeur > pixels[xDecal][yDecal])
+								pixels[xDecal][yDecal] = nouvelleValeur;
+						}
+					}
+				}
+			}
+		}
+	}
+	function recadrer() {
+		var xMin = Number.MAX_VALUE, yMin = Number.MAX_VALUE;
+		var xCadre = BLUR, yCadre = BLUR;
+		for (var x = 0; x < GRID_WIDTH; ++x) {
+			for (var y = 0; y < GRID_HEIGHT; ++y) {
+				if (pixels[x][y] === true) {
+					xMin = Math.min(x, xMin);
+					yMin = Math.min(y, yMin);
+				}
+			}
+		}
+		if(xMin == xCadre && yMin == yCadre)
+			return;
+		var tmpPixels = [];
+		for (var x = 0; x < GRID_WIDTH; ++x) {
+			tmpPixels[x] = [];
+			for (var y = 0; y < GRID_HEIGHT; ++y) {
+				tmpPixels[x][y] = false;
+			}
+		}
+		for (var x = 0; x < GRID_WIDTH; ++x) {
+			for (var y = 0; y < GRID_HEIGHT; ++y) {
+				if (pixels[x][y] === true) {
+					tmpPixels[x - xMin + xCadre][y - yMin + yCadre] = true;
+				}
+			}
+		}
+		pixels = tmpPixels;
+	}
+	function resetFlou() {
+		for (var y = 0; y < GRID_HEIGHT; ++y) {
+			for (var x = 0; x < GRID_WIDTH; ++x) {
+				if (pixels[x][y] !== true)
+					pixels[x][y] = false;
+			}
+		}
+	}
+</script>
+</head>
+<body onLoad="init();">
+	<canvas id="canvas" width="300" height="400" style="float: left">
+		alternate content
+	</canvas>
+	<div style="margin-left: 50px; float: left">
+		<input type="button" value="Reset canvas" onclick="resetCanvas()" /><br />
+		<br /> <input type="text" id="inputNumber"><input
+			type="button" value="Learn" onclick="learnClicked()" /><br /> <input
+			type="text" id="outputNumber"><input type="button"
+			value="Process" onclick="processClicked()" /><br />
+	</div>
+	<pre id="matrice"></pre>
+	<div id="links" style="clear: both;"></div>
+	<input type="text" id="autoTrain" />
+	<button onclick="doAllTheFuckingJobForMe();">doAllTheFuckingJobForMe</button>
+	<button
+		onclick="saveNumbers(parseInt(document.getElementById('inputNumber').value));">Save
+		!</button>
+		<button onclick="recadrer(); drawPixels();">Recadrer</button>
+</body>
+</html>
